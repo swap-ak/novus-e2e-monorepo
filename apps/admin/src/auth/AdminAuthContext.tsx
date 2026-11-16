@@ -26,6 +26,28 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Identify the signed-in admin after sign-in and session restore.
+  useEffect(() => {
+    if (!admin) return;
+    pendo.identify({
+      visitor: {
+        id: admin.id,
+        email: admin.email,
+        full_name: admin.name,
+        role: admin.role,
+        organizationId: admin.organization.id,
+        active: admin.active,
+        createdAt: admin.createdAt,
+      },
+      account: {
+        id: admin.organization.id,
+        name: admin.organization.name,
+        plan: admin.organization.plan,
+        seats: admin.organization.seats,
+      },
+    });
+  }, [admin]);
+
   const signIn = async (email: string, password: string) => {
     const { token, user } = await adminApi.login(email, password);
     if (user.role !== "admin") {
@@ -44,6 +66,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setAdmin(null);
+      // clearSession isn't stubbed by the snippet, so skip it if the agent hasn't loaded.
+      if (typeof pendo.clearSession === "function") pendo.clearSession();
     }
   };
 
