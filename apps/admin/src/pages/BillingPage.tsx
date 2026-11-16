@@ -1,6 +1,8 @@
 import { Button, Card, ErrorMessage, SelectField, TextField } from "@fieldnotes/ui";
 import { useEffect, useState, type FormEvent } from "react";
+import { trackSubscriptionUpdated } from "../analytics/adminEvents";
 import { adminApi, type Billing, type Plan } from "../api/client";
+import { useAdminAuth } from "../auth/AdminAuthContext";
 
 const PLAN_OPTIONS = [
   { value: "free", label: "Free" },
@@ -9,14 +11,20 @@ const PLAN_OPTIONS = [
 ];
 
 export function BillingPage() {
+  const { admin } = useAdminAuth();
   const [billing, setBilling] = useState<Billing | null>(null);
+  // Last values the API confirmed, used as the "previous" values for subscription_updated.
+  const [savedBilling, setSavedBilling] = useState<Billing | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     adminApi
       .getBilling()
-      .then(setBilling)
+      .then((current) => {
+        setBilling(current);
+        setSavedBilling(current);
+      })
       .catch((err: Error) => setError(err.message));
   }, []);
 
@@ -27,7 +35,16 @@ export function BillingPage() {
     setSaved(false);
     setError(null);
     try {
-      setBilling(await adminApi.updateBilling(billing));
+      const updated = await adminApi.updateBilling(billing);
+      trackSubscriptionUpdated({
+        plan: updated.plan,
+        previousPlan: savedBilling?.plan ?? updated.plan,
+        seats: updated.seats,
+        previousSeats: savedBilling?.seats ?? updated.seats,
+        organizationId: admin?.organization.id,
+      });
+      setBilling(updated);
+      setSavedBilling(updated);
       setSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save billing details");

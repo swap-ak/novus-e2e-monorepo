@@ -13,6 +13,7 @@ export interface NotebookObjectMetadata {
   organizationId?: string;
   noteId?: string;
   notebookShared?: boolean;
+  noteCount?: number;
 }
 
 export function trackNotebookObjectEvent(
