@@ -24,6 +24,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Identify the visitor after sign-in or session restore, and again when the profile changes.
+  useEffect(() => {
+    if (!user) return;
+    pendo.identify({
+      visitor: {
+        id: user.id,
+        email: user.email,
+        full_name: user.name,
+        role: user.role,
+        accountId: user.organization.id,
+        active: user.active,
+        createdAt: user.createdAt,
+      },
+      account: {
+        id: user.organization.id,
+        name: user.organization.name,
+        plan: user.organization.plan,
+        seats: user.organization.seats,
+      },
+    });
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     const { token, user: profile } = await api.login(email, password);
     tokenStore.set(token);
@@ -36,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       tokenStore.clear();
       setUser(null);
+      if (typeof pendo.clearSession === "function") pendo.clearSession();
     }
   };
 
